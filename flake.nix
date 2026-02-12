@@ -22,6 +22,7 @@
     let
       overlay = final: prev: {
         opencode = final.callPackage ./package.nix { };
+        kilocode = final.callPackage ./kilocode-package.nix { };
       };
     in
     flake-utils.lib.eachDefaultSystem (
@@ -36,6 +37,7 @@
         packages = {
           default = pkgs.opencode;
           opencode = pkgs.opencode;
+          kilocode = pkgs.kilocode;
         };
 
         apps = {
@@ -48,6 +50,11 @@
             type = "app";
             program = "${pkgs.opencode}/bin/opencode";
             meta.description = "AI coding assistant in your terminal";
+          };
+          kilocode = {
+            type = "app";
+            program = "${pkgs.kilocode}/bin/kilocode";
+            meta.description = "Kilo Code CLI in your terminal";
           };
         };
 

@@ -144,7 +144,7 @@ nix build
 
 ### Update Workflow
 
-The `update.sh` script checks for new OpenCode releases and updates `version.json`:
+OpenCode updates use `update.sh` (updates `version.json`):
 
 ```bash
 # Enter dev shell (provides required tools)
@@ -161,6 +161,19 @@ The script:
 1. Queries GitHub API for the latest non-prerelease release
 2. Compares against current version in `version.json`
 3. With `--update`: fetches SRI hashes for all platforms and updates `version.json`
+
+Kilo Code CLI updates use `update-kilocode.sh` (updates `kilocode-version.json`):
+
+```bash
+# Enter dev shell (provides required tools)
+nix develop
+
+# Check for updates (dry run)
+./update-kilocode.sh
+
+# Update to latest version
+./update-kilocode.sh --update
+```
 
 ### Automated Updates
 

@@ -1,9 +1,9 @@
 # Automated Update Workflow
 #
-# OpenCode releases frequently, so we check hourly.
-# Pushes updates directly to main.
+# Checks OpenCode and Kilo Code CLI hourly and pushes version file
+# updates directly to main when needed.
 
-name: Update OpenCode
+name: Update Packages
 
 on:
   schedule:
@@ -28,8 +28,8 @@ jobs:
           extra-conf: |
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check for updates
-        id: check
+      - name: Check OpenCode update
+        id: check_opencode
         run: |
           output=$(nix develop --command ./update.sh 2>&1) || true
           echo "$output"
@@ -42,34 +42,72 @@ jobs:
             echo "update_needed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update version.json
-        if: steps.check.outputs.update_needed == 'true'
+      - name: Check Kilo Code CLI update
+        id: check_kilocode
         run: |
-          nix develop --command ./update.sh --update
+          output=$(nix develop --command ./update-kilocode.sh 2>&1) || true
+          echo "$output"
+
+          if echo "$output" | grep -q "UPDATE_NEEDED=true"; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            new_version=$(echo "$output" | grep "NEW_VERSION=" | cut -d= -f2)
+            echo "new_version=$new_version" >> $GITHUB_OUTPUT
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update version files
+        if: steps.check_opencode.outputs.update_needed == 'true' || steps.check_kilocode.outputs.update_needed == 'true'
+        run: |
+          if [[ "${{ steps.check_opencode.outputs.update_needed }}" == "true" ]]; then
+            nix develop --command ./update.sh --update
+          fi
+
+          if [[ "${{ steps.check_kilocode.outputs.update_needed }}" == "true" ]]; then
+            nix develop --command ./update-kilocode.sh --update
+          fi
 
       - name: Validate flake
-        if: steps.check.outputs.update_needed == 'true'
+        if: steps.check_opencode.outputs.update_needed == 'true' || steps.check_kilocode.outputs.update_needed == 'true'
         run: |
           nix flake check
 
       - name: Push update
-        if: steps.check.outputs.update_needed == 'true'
+        if: steps.check_opencode.outputs.update_needed == 'true' || steps.check_kilocode.outputs.update_needed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add version.json
-          git commit -m "chore: update opencode to ${{ steps.check.outputs.new_version }}"
+          git add version.json kilocode-version.json
+
+          msg_parts=()
+          if [[ "${{ steps.check_opencode.outputs.update_needed }}" == "true" ]]; then
+            msg_parts+=("opencode ${{ steps.check_opencode.outputs.new_version }}")
+          fi
+          if [[ "${{ steps.check_kilocode.outputs.update_needed }}" == "true" ]]; then
+            msg_parts+=("kilocode ${{ steps.check_kilocode.outputs.new_version }}")
+          fi
+
+          git commit -m "chore: update ${msg_parts[*]}"
           git push origin HEAD:main
 
       - name: Summary
         run: |
-          if [[ "${{ steps.check.outputs.update_needed }}" == "true" ]]; then
+          if [[ "${{ steps.check_opencode.outputs.update_needed }}" == "true" ]] || [[ "${{ steps.check_kilocode.outputs.update_needed }}" == "true" ]]; then
             echo "## Update Applied" >> $GITHUB_STEP_SUMMARY
-            echo "Updated to version ${{ steps.check.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+            if [[ "${{ steps.check_opencode.outputs.update_needed }}" == "true" ]]; then
+              echo "- OpenCode: ${{ steps.check_opencode.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- OpenCode: no update" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [[ "${{ steps.check_kilocode.outputs.update_needed }}" == "true" ]]; then
+              echo "- Kilo Code CLI: ${{ steps.check_kilocode.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- Kilo Code CLI: no update" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "## No Update Needed" >> $GITHUB_STEP_SUMMARY
-            echo "Already on the latest version" >> $GITHUB_STEP_SUMMARY
+            echo "OpenCode and Kilo Code CLI are already on the latest versions" >> $GITHUB_STEP_SUMMARY
           fi
