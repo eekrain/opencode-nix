@@ -1,24 +1,30 @@
 # opencode-nix
 
-Nix flake for [OpenCode](https://github.com/anomalyco/opencode) - an AI coding assistant in your terminal.
+Nix flake for [OpenCode](https://github.com/anomalyco/opencode) and Kilo Code CLI.
 
 **Features:**
-- Direct binary packaging from GitHub releases
+- Direct binary packaging for OpenCode and Kilo Code CLI
 - Smart Home Manager detection with automatic symlink management
 - Pre-built binaries via Garnix for instant installation
-- Hourly automated updates for new OpenCode versions
+- Hourly automated updates for both packages
 - Linux and macOS support (x86_64 and aarch64)
 
 ## Quick Start
 
-**Try without installing:**
+**Run OpenCode without installing:**
 ```bash
-nix run github:dominicnunez/opencode-nix
+nix run github:eekrain/opencode-nix#opencode
 ```
 
-**Install to your profile:**
+**Run Kilo Code CLI without installing:**
 ```bash
-nix profile add github:dominicnunez/opencode-nix
+nix run github:eekrain/opencode-nix#kilocode
+```
+
+**Install both to your profile:**
+```bash
+nix profile add github:eekrain/opencode-nix#opencode
+nix profile add github:eekrain/opencode-nix#kilocode
 ```
 
 ## Binary Cache
@@ -35,7 +41,7 @@ If prompted to allow configuration from the flake, answer yes or add `accept-fla
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    opencode-nix.url = "github:dominicnunez/opencode-nix";
+    opencode-nix.url = "github:eekrain/opencode-nix";
   };
 
   outputs = { self, nixpkgs, opencode-nix, ... }: {
@@ -50,7 +56,8 @@ If prompted to allow configuration from the flake, answer yes or add `accept-fla
 { inputs, pkgs, ... }:
 {
   environment.systemPackages = [
-    inputs.opencode-nix.packages.${pkgs.system}.default
+    inputs.opencode-nix.packages.${pkgs.system}.opencode
+    inputs.opencode-nix.packages.${pkgs.system}.kilocode
   ];
 }
 ```
@@ -61,7 +68,8 @@ If prompted to allow configuration from the flake, answer yes or add `accept-fla
 { inputs, pkgs, ... }:
 {
   home.packages = [
-    inputs.opencode-nix.packages.${pkgs.system}.default
+    inputs.opencode-nix.packages.${pkgs.system}.opencode
+    inputs.opencode-nix.packages.${pkgs.system}.kilocode
   ];
 }
 ```
@@ -72,7 +80,7 @@ If prompted to allow configuration from the flake, answer yes or add `accept-fla
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    opencode-nix.url = "github:dominicnunez/opencode-nix";
+    opencode-nix.url = "github:eekrain/opencode-nix";
   };
 
   outputs = { self, nixpkgs, opencode-nix, ... }:
@@ -83,9 +91,9 @@ If prompted to allow configuration from the flake, answer yes or add `accept-fla
         overlays = [ opencode-nix.overlays.default ];
       };
     in {
-      # pkgs.opencode is now available
+      # pkgs.opencode and pkgs.kilocode are now available
       devShells.${system}.default = pkgs.mkShell {
-        buildInputs = [ pkgs.opencode ];
+        buildInputs = [ pkgs.opencode pkgs.kilocode ];
       };
     };
 }
@@ -122,6 +130,7 @@ export OPENCODE_NIX_VERBOSE=1
 **If using `nix profile add`:**
 ```bash
 nix profile upgrade '.*opencode.*'
+nix profile upgrade '.*kilocode.*'
 ```
 
 **If using as a flake input:**
@@ -135,10 +144,11 @@ nixos-rebuild switch  # or home-manager switch
 ### Development Setup
 
 ```bash
-git clone https://github.com/dominicnunez/opencode-nix
+git clone https://github.com/eekrain/opencode-nix
 cd opencode-nix
 nix develop  # enters shell with dev tools
-nix build
+nix build .#opencode
+nix build .#kilocode
 ./result/bin/opencode --version
 ```
 
@@ -178,7 +188,7 @@ nix develop
 ### Automated Updates
 
 A GitHub Actions workflow runs hourly to check for new releases. When a new version is found, it automatically:
-1. Updates `version.json` with new version and hashes
+1. Updates `version.json` and/or `kilocode-version.json`
 2. Validates with `nix flake check`
 3. Pushes directly to main
 
